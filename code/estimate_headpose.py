@@ -7,7 +7,7 @@ from src.utility import rotation_vector_to_euler_angles, camera_matrix, detector
 PROJECT_PATH = Path(__file__).parents[1]
 PROC_DATA_PATH = Path(PROJECT_PATH, "data/proc_data")
 HEADPOSE_PATH = Path(PROJECT_PATH, "data/headpose_data")
-IMAGE_PATH = Path(PROJECT_PATH, "data/images")
+IMAGE_PATH = Path(PROJECT_PATH, "images")
 
 #%%
 # Iterate through each depth and RGB file
@@ -38,7 +38,7 @@ for color_file in Path(PROC_DATA_PATH, "rgb").glob("*.npy"):
 
             # Save every 50th frame as an image file
             if frame_idx % 50 == 0:  # Save every 50th frame
-                cv2.imwrite(str(Path(IMAGE_PATH,f"frame_{participant_id}_{frame_idx}.png")), cv2.cvtColor(color_image, cv2.COLOR_RGB2BGR))
+                cv2.imwrite(str(Path(IMAGE_PATH,f"{participant_id}_frame_{frame_idx}.png")), cv2.cvtColor(color_image, cv2.COLOR_RGB2BGR))
 
             for face in faces:
                 image_points, model_points = get_image_points_and_model_points(color_image, face, depth_image)

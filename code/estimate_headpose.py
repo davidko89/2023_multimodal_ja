@@ -8,11 +8,13 @@ from src.utility import rotation_vector_to_euler_angles, camera_matrix, detector
 ROOT_PATH = Path("/mnt/2021_NIA_data/projects/nbb")
 VIDEO_PATH = ROOT_PATH.joinpath("video")
 PROC_DATA_PATH = VIDEO_PATH.joinpath("proc_data")
-HEADPOSE_PATH = VIDEO_PATH.joinpath("headpose_data")
-IMAGE_PATH = VIDEO_PATH.joinpath("images")
+PROJECT_PATH = Path(__file__).parents[1]
+IMAGE_PATH = Path(PROJECT_PATH, "images")
+PROC_PARTICIPANT_PATH = Path(PROJECT_PATH, "data")
+HEADPOSE_PATH = Path(PROJECT_PATH, "data/headpose_data")
 
 # Load previously processed participants if any
-processed_participants_file = HEADPOSE_PATH.joinpath("processed_participants.txt")
+processed_participants_file = PROC_PARTICIPANT_PATH.joinpath("processed_participants.txt")
 processed_participants = set()
 if processed_participants_file.exists():
     with open(processed_participants_file, 'r') as f:
@@ -27,7 +29,7 @@ if not os.path.exists(headpose_csv_file):
 
 #%%
 # Iterate through each depth and RGB file
-for color_file in Path(PROC_DATA_PATH, "rgb").glob("*.npy"):
+for color_file in Path(PROC_DATA_PATH, "color").glob("*.npy"):
     # Get the participant ID from the file name
     participant_id = color_file.stem.split("_")[0]
     
@@ -53,8 +55,8 @@ for color_file in Path(PROC_DATA_PATH, "rgb").glob("*.npy"):
             color_image = draw_face_bounding_boxes(color_image, faces)
 
             # Save every 50th frame as an image file
-            if frame_idx % 50 == 0:  # Save every 50th frame
-                cv2.imwrite(str(Path(IMAGE_PATH,f"{participant_id}_frame_{frame_idx}.png")), cv2.cvtColor(color_image, cv2.COLOR_RGB2BGR))
+            # if frame_idx % 50 == 0:  # Save every 50th frame
+            #     cv2.imwrite(str(Path(IMAGE_PATH,f"{participant_id}_frame_{frame_idx}.png")), cv2.cvtColor(color_image, cv2.COLOR_RGB2BGR))
 
             for face in faces:
                 image_points, model_points = get_image_points_and_model_points(color_image, face, depth_image)
@@ -82,7 +84,7 @@ for color_file in Path(PROC_DATA_PATH, "rgb").glob("*.npy"):
 # IMAGE_PATH = VIDEO_PATH.joinpath("images")
 
 # # Load the color images
-# color_file = Path(PROC_DATA_PATH, "rgb", "td006_color.npy")
+# color_file = Path(PROC_DATA_PATH, "color", "td006_color.npy")
 # depth_file = Path(PROC_DATA_PATH, "depth", color_file.stem.replace("color", "depth") + ".npy")
 # color_images = np.load(color_file)
 # participant_id = color_file.stem.split("_")[0]

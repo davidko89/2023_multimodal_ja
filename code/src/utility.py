@@ -5,7 +5,7 @@ import csv
 
 
 def rotation_vector_to_euler_angles(rotation_vector):
-    """Convert a rotation vector to Euler angles (yaw, pitch, and roll)."""
+    """Convert a rotation vector to Euler angles (pitch, yaw, roll)"""
     matrix, _ = cv2.Rodrigues(rotation_vector)
     _, _, _, _, _, _, euler_angles = cv2.decomposeProjectionMatrix(np.hstack((matrix, np.zeros((3, 1)))))
     return euler_angles

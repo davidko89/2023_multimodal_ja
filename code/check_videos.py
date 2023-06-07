@@ -2,7 +2,7 @@
 import cv2
 import numpy as np
 from pathlib import Path
-from src.utility import camera_matrix, detector, draw_face_bounding_boxes
+from src.utility import detector, draw_face_bounding_boxes
 
 ROOT_PATH = Path("/mnt/2021_NIA_data/projects/nbb")
 VIDEO_PATH = ROOT_PATH.joinpath("video")
@@ -12,7 +12,7 @@ IMAGE_PATH = Path(PROJECT_PATH, "images")
 
 #%%
 # Load the color images
-color_file = Path(PROC_DATA_PATH, "color", "td007_color.npy")
+color_file = Path(PROC_DATA_PATH, "color", "td009_color.npy")
 depth_file = Path(PROC_DATA_PATH, "depth", color_file.stem.replace("color", "depth") + ".npy")
 color_images = np.load(color_file)
 participant_id = color_file.stem.split("_")[0]

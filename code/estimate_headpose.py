@@ -61,9 +61,9 @@ for color_file in Path(PROC_DATA_PATH, "color").glob("*.npy"):
             for face in faces:
                 image_points, model_points = get_image_points_and_model_points(color_image, face, depth_image)
                 _, rotation_vector, translation_vector = cv2.solvePnP(model_points, image_points, camera_matrix, None)
-                yaw, pitch, roll = rotation_vector_to_euler_angles(rotation_vector)
+                pitch, yaw, roll = rotation_vector_to_euler_angles(rotation_vector)
 
-                write_headpose_to_csv(str(Path(HEADPOSE_PATH, "headpose_values.csv")), participant_id, yaw, pitch, roll)
+                write_headpose_to_csv(str(Path(HEADPOSE_PATH, "headpose_values.csv")), participant_id, roll, pitch, yaw)
         
         # After all frames are processed, add participant_id to processed_participants and write to file
         processed_participants.add(participant_id)

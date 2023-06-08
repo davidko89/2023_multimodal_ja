@@ -4,11 +4,19 @@ import dlib
 import csv 
 
 
-def rotation_vector_to_euler_angles(rotation_vector):
-    """Convert a rotation vector to Euler angles (pitch, yaw, roll)"""
-    matrix, _ = cv2.Rodrigues(rotation_vector)
-    _, _, _, _, _, _, euler_angles = cv2.decomposeProjectionMatrix(np.hstack((matrix, np.zeros((3, 1)))))
-    return euler_angles
+def rotation_matrix_to_euler_angles(matrix):
+    """Convert a rotation matrix to Euler angles (roll, pitch, yaw)"""
+    sy = np.sqrt(matrix[0,0] * matrix[0,0] +  matrix[1,0] * matrix[1,0])
+    singular = sy < 1e-6
+    if not singular:
+        x = np.arctan2(matrix[2,1] , matrix[2,2])
+        y = np.arctan2(-matrix[2,0], sy)
+        z = np.arctan2(matrix[1,0], matrix[0,0])
+    else:
+        x = np.arctan2(-matrix[1,2], matrix[1,1])
+        y = np.arctan2(-matrix[2,0], sy)
+        z = 0
+    return np.array([x, y, z])
 
 
 # Create a Dlib face detector and shape predictor
@@ -20,21 +28,6 @@ predictor = dlib.shape_predictor('/home/cko4/2023_asd_gaze/code/src/shape_predic
 fx, fy = 961.8638, 550.6279  # focal length in pixels
 cx, cy = 912.718, 912.5225  # image center
 camera_matrix = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=np.float32)
-
-# fx, fy = 500, 500  # focal length in pixels
-
-# # Placeholder values for image center (cx, cy)
-# cx, cy = 0, 0
-
-# # Function to update the camera matrix based on the input image shape
-# def update_camera_matrix(image_shape):
-#     global cx, cy, camera_matrix
-#     cx, cy = image_shape[1] / 2, image_shape[0] / 2  # image center
-#     camera_matrix = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=np.float32)
-#     return camera_matrix
-
-# # Initialize camera_matrix with default values
-# camera_matrix = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=np.float32)
 
 
 # Define 3D model points without depth
@@ -64,17 +57,22 @@ def get_image_points_and_model_points(color_image, face, depth_image):
 
     # Get depth values for the landmarks
     depths = [
-        depth_image[landmarks.part(30).y, landmarks.part(30).x],
-        depth_image[landmarks.part(36).y, landmarks.part(36).x],
-        depth_image[landmarks.part(45).y, landmarks.part(45).x],
-        depth_image[(landmarks.part(48).y + landmarks.part(54).y) // 2, (landmarks.part(48).x + landmarks.part(54).x) // 2],
-        depth_image[landmarks.part(48).y, landmarks.part(48).x],
-        depth_image[landmarks.part(54).y, landmarks.part(54).x],
-    ]
+    depth_image[landmarks.part(30).x, landmarks.part(30).y],
+    depth_image[landmarks.part(36).x, landmarks.part(36).y],
+    depth_image[landmarks.part(45).x, landmarks.part(45).y],
+    depth_image[(landmarks.part(48).x + landmarks.part(54).x) // 2, (landmarks.part(48).y + landmarks.part(54).y) // 2],
+    depth_image[landmarks.part(48).x, landmarks.part(48).y],
+    depth_image[landmarks.part(54).x, landmarks.part(54).y],
+]
+
+    print("Depth Values: ", depths)
 
     # Create 3D model points using depth information
     model_points = model_points_without_depth.copy()
     model_points[:, 2] += depths
+
+    print("Image Points: ", image_points)
+    print("Model Points: ", model_points)
 
     return image_points, model_points
 
@@ -90,4 +88,4 @@ def draw_face_bounding_boxes(color_image, faces):
 def write_headpose_to_csv(csv_path, participant_id, roll, pitch, yaw):
     with open(csv_path, mode='a') as csv_file:
         writer = csv.writer(csv_file)
-        writer.writerow([participant_id, roll[0], pitch[0], yaw[0]])
+        writer.writerow([participant_id, roll, pitch, yaw])

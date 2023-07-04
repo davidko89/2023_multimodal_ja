@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from pathlib import Path
-from src.utility import rotation_vector_to_euler_angles, camera_matrix, model_points_without_depth, detector, predictor 
+from code.src.utility_sample import rotation_vector_to_euler_angles, camera_matrix, model_points_without_depth, detector, predictor 
 
 PROJECT_PATH = Path(__file__).parents[1]
 PROC_DATA_PATH = Path(PROJECT_PATH, "data/proc_data")

@@ -1,7 +1,8 @@
 import cv2
 import numpy as np
 import dlib
-import csv 
+import csv
+import os  
 
 
 def rotation_matrix_to_euler_angles(matrix):
@@ -47,10 +48,9 @@ model_points = np.array([
 ], dtype=np.float32)
 
 
-
-def get_image_points_and_model_points(color_image, face):
+def get_image_points_and_model_points(video_image, face):
     # Get the landmarks for the face
-    landmarks = predictor(color_image, face)
+    landmarks = predictor(video_image, face)
 
     # Extract the relevant landmarks for head pose estimation (2D image points)
     image_points = np.array([
@@ -65,15 +65,27 @@ def get_image_points_and_model_points(color_image, face):
     return image_points, model_points
 
 
-def draw_face_bounding_boxes(color_image, faces):
+def draw_face_bounding_boxes(video_image, faces):
     for face in faces:
         x1, y1 = face.left(), face.top()
         x2, y2 = face.right(), face.bottom()
-        cv2.rectangle(color_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-    return color_image
+        cv2.rectangle(video_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+    return video_image
 
 
-def write_headpose_to_csv(csv_path, participant_id, roll, pitch, yaw):
+def write_headpose_to_csv(csv_path, participant_id, frame_idx, roll, pitch, yaw):
+    file_exists = os.path.isfile(csv_path)
     with open(csv_path, mode='a') as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow([participant_id, roll[0], pitch[0], yaw[0]])
+        headers = ['Participant_ID', 'Frame_Index', 'Roll', 'Pitch', 'Yaw']
+        writer = csv.DictWriter(csv_file, fieldnames=headers)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow({
+            'Participant_ID': participant_id,
+            'Frame_Index': frame_idx,
+            'Roll': roll,
+            'Pitch': pitch,
+            'Yaw': yaw,
+        })
+
+

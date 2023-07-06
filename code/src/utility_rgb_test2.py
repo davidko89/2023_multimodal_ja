@@ -4,7 +4,6 @@ import dlib
 import csv
 import os  
 
-
 def rotation_matrix_to_euler_angles(matrix):
     """Convert a rotation matrix to Euler angles (roll, pitch, yaw)"""
     sy = np.sqrt(matrix[0,0] * matrix[0,0] +  matrix[1,0] * matrix[1,0])
@@ -17,7 +16,7 @@ def rotation_matrix_to_euler_angles(matrix):
         x = np.arctan2(-matrix[1,2], matrix[1,1])
         y = np.arctan2(-matrix[2,0], sy)
         z = 0
-    return np.array([x, y, z])
+    return np.array([x, y, z]) * (180. / np.pi)  # Convert to degrees
 
 
 # Create a Dlib face detector and shape predictor
@@ -39,13 +38,13 @@ def update_camera_matrix(image_shape):
 
 # Define 3D model points
 model_points = np.array([
-    (0.0, 0.0, 0.0),    # Nose tip
-    (-30.0, -20.0, 0.0),   # Left eye
-    (30.0, -20.0, 0.0),    # Right eye
-    (0.0, 50.0, 0.0),   # Mouth center
-    (-20.0, 50.0, 0.0),   # Left mouth corner
-    (20.0, 50.0, 0.0),    # Right mouth corner
-], dtype=np.float32)
+                            (0.0, 0.0, 0.0),             # Nose tip
+                            (0.0, -330.0, -65.0),        # Chin
+                            (-225.0, 170.0, -135.0),     # Left eye left corner
+                            (225.0, 170.0, -135.0),      # Right eye right corner
+                            (-150.0, -150.0, -125.0),    # Left Mouth corner
+                            (150.0, -150.0, -125.0)      # Right mouth corner
+                        ], dtype=np.float32)
 
 
 def get_image_points_and_model_points(video_image, face):
@@ -55,10 +54,10 @@ def get_image_points_and_model_points(video_image, face):
     # Extract the relevant landmarks for head pose estimation (2D image points)
     image_points = np.array([
         (landmarks.part(30).x, landmarks.part(30).y),  # Nose tip
-        (landmarks.part(36).x, landmarks.part(36).y),  # Left eye
-        (landmarks.part(45).x, landmarks.part(45).y),  # Right eye
-        ((landmarks.part(48).x + landmarks.part(54).x) // 2, (landmarks.part(48).y + landmarks.part(54).y) // 2),  # Mouth center
-        (landmarks.part(48).x, landmarks.part(48).y),  # Left mouth corner
+        (landmarks.part(8).x, landmarks.part(8).y),  # Chin
+        (landmarks.part(36).x, landmarks.part(36).y),  # Left eye left corner
+        (landmarks.part(45).x, landmarks.part(45).y),  # Right eye right corner
+        (landmarks.part(48).x, landmarks.part(48).y),  # Left Mouth corner
         (landmarks.part(54).x, landmarks.part(54).y),  # Right mouth corner
     ], dtype=np.float32)
 
@@ -76,16 +75,14 @@ def draw_face_bounding_boxes(video_image, faces):
 def write_headpose_to_csv(csv_path, participant_id, frame_idx, roll, pitch, yaw):
     file_exists = os.path.isfile(csv_path)
     with open(csv_path, mode='a') as csv_file:
-        headers = ['Participant_ID', 'Frame_Index', 'Roll', 'Pitch', 'Yaw']
+        headers = ['participant_id', 'frame_idx', 'roll', 'pitch', 'yaw']
         writer = csv.DictWriter(csv_file, fieldnames=headers)
         if not file_exists:
             writer.writeheader()
         writer.writerow({
-            'Participant_ID': participant_id,
-            'Frame_Index': frame_idx,
-            'Roll': roll,
-            'Pitch': pitch,
-            'Yaw': yaw,
+            'participant_id': participant_id,
+            'frame_idx': frame_idx,
+            'roll': roll,
+            'pitch': pitch,
+            'yaw': yaw,
         })
-
-

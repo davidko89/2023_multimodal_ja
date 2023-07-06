@@ -2,17 +2,19 @@ import cv2
 import numpy as np 
 from pathlib import Path
 from src.utility_rgb_test2 import rotation_matrix_to_euler_angles, update_camera_matrix, detector, get_image_points_and_model_points, draw_face_bounding_boxes, write_headpose_to_csv
+from sixdrepnet import SixDRepNet
+
 
 ROOT_PATH = Path("/mnt/2021_NIA_data/projects/nbb")
 RAW_DATA_PATH = ROOT_PATH.joinpath("video/raw_data")
 PROC_DATA_PATH = ROOT_PATH.joinpath("video/proc_data")
 PROJECT_PATH = Path(__file__).parents[1]
-IMAGE_PATH = Path(PROJECT_PATH, "images")
+IMAGE_PATH = Path(PROJECT_PATH, "images_test")
 PROC_PARTICIPANT_PATH = Path(PROJECT_PATH, "data")
 
 
 def check_if_processed(participant_id):
-    processed_participants_file = PROC_PARTICIPANT_PATH.joinpath("processed_participants_rgb_test2.txt")
+    processed_participants_file = PROC_PARTICIPANT_PATH.joinpath("processed_participants_rgb_sota.txt")
     if processed_participants_file.exists():
         with open(processed_participants_file, 'r') as f:
             processed_participants = set(line.strip() for line in f)
@@ -21,7 +23,7 @@ def check_if_processed(participant_id):
            
 
 def mark_participant_as_processed(participant_id):
-    processed_participants_file = PROC_PARTICIPANT_PATH.joinpath("processed_participants_rgb_test2.txt")
+    processed_participants_file = PROC_PARTICIPANT_PATH.joinpath("processed_participants_rgb_sota.txt")
     with open(processed_participants_file, 'a') as f:
         f.write(f"{participant_id}\n")
 
@@ -52,9 +54,11 @@ def read_video(video_file: Path):
 def estimate_headpose_rgb(video_file, participant_id):
     headpose_results = []  # Store head pose results for each face
 
+    model = SixDRepNet() # Initialize SixDRepNet model
+
     for frame_idx, video_image in enumerate(read_video(video_file)):
         video_image = cv2.cvtColor(video_image, cv2.COLOR_BGR2RGB)
-        
+
         # Detect faces in the image
         faces = detector(video_image, 1)
         video_image = draw_face_bounding_boxes(video_image, faces)
@@ -65,27 +69,17 @@ def estimate_headpose_rgb(video_file, participant_id):
 
         # Process each detected face
         for face in faces:
+             # Crop the face from the image
+            face_crop = video_image[face.top():face.bottom(), face.left():face.right()]
             try:
-                image_points, model_points = get_image_points_and_model_points(video_image, face)
+                # Estimate pitch, yaw, and roll using SixDRepNet model
+                pitch, yaw, roll = model.predict(face_crop)
+                
+                # Calculate the center of the face
+                tdx = int(face.left() + (face.right() - face.left()) / 2)
+                tdy = int(face.top() + (face.bottom() - face.top()) / 2)
 
-                # Solve for pose
-                camera_matrix = update_camera_matrix(video_image.shape)
-                dist_coeffs = np.zeros((4,1))  # Assuming no lens distortion
-                _, rotation_vector, translation_vector = cv2.solvePnP(model_points, image_points, camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
-
-                # Project a 3D point (0, 0, 1000.0) onto the image plane
-                (nose_end_point2D, _) = cv2.projectPoints(np.array([(0.0, 0.0, 1000.0)]), rotation_vector, translation_vector, camera_matrix, dist_coeffs)
-
-                # Draw line indicating the direction of the nose
-                p1 = ( int(image_points[0][0]), int(image_points[0][1]))
-                p2 = ( int(nose_end_point2D[0][0][0]), int(nose_end_point2D[0][0][1]))
-                cv2.line(video_image, p1, p2, (255,0,0), 2)
-
-                # Convert rotation vector to rotation matrix
-                rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
-
-                # Convert rotation matrix to euler angles
-                roll, pitch, yaw = rotation_matrix_to_euler_angles(rotation_matrix)
+                model.draw_axis(video_image, yaw, pitch, roll, tdx, tdy)
 
                 # Convert radians to degrees
                 roll, pitch, yaw = np.degrees([roll, pitch, yaw])
@@ -93,13 +87,13 @@ def estimate_headpose_rgb(video_file, participant_id):
                 # Add head pose results to the list
                 headpose_results.append((frame_idx, roll, pitch, yaw))
 
+                # Save every 100th frame as image files
+                if frame_idx % 100 == 0 or frame_idx == 0:
+                    cv2.imwrite(str(Path(IMAGE_PATH, f"{participant_id}_frame_{frame_idx}.png")), cv2.cvtColor(video_image, cv2.COLOR_RGB2BGR))
+
             except Exception as e:
                 print(f"Error while processing face on frame {frame_idx}: {e}")
 
-        # Save every 100th frame as image files
-        if frame_idx % 100 == 0 or frame_idx == 0:
-            cv2.imwrite(str(Path(IMAGE_PATH, f"{participant_id}_frame_{frame_idx}.png")), cv2.cvtColor(video_image, cv2.COLOR_RGB2BGR))
-    
     return headpose_results
 
 
@@ -124,7 +118,7 @@ def main():
             print("Writing to CSV...")
             headpose_dir = PROC_PARTICIPANT_PATH.joinpath("headpose_data")
             headpose_dir.mkdir(parents=True, exist_ok=True)
-            headpose_csv_file = headpose_dir.joinpath("headpose_values_rgb_test2.csv")
+            headpose_csv_file = headpose_dir.joinpath("headpose_values_rgb_sota.csv")
             write_headpose_to_csv(headpose_csv_file, participant_id, frame_idx, roll, pitch, yaw)
 
         # Mark participant as processed
@@ -134,39 +128,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-# def read_video(video_path: Path):
-#     print(f"Reading video from {video_path}")
-#     if not video_path.exists():
-#         print(f"Video file not found at {video_path}")
-#         return None
-
-#     cap = cv2.VideoCapture(str(video_path))
-
-#     if not cap.isOpened():
-#         print("Failed to open video")
-#         return None
-
-#     frameCount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-#     frameWidth = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-#     frameHeight = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-#     print(f"Frame count: {frameCount}, Frame width: {frameWidth}, Frame height: {frameHeight}")
-
-#     buf = np.empty((frameCount, frameHeight, frameWidth, 3), np.dtype("uint8"))
-
-#     fc = 0
-#     ret = True
-
-#     while fc < frameCount and ret:
-#         ret, buf[fc] = cap.read()
-#         if not ret:
-#             print(f"Failed to read frame {fc}")
-#         fc += 1
-
-#     cap.release()
-
-#     video_array = np.transpose(buf, (0, 3, 2, 1))
-#     print(f"Video array shape: {video_array.shape}, dtype: {video_array.dtype}")
-
-#     return video_array

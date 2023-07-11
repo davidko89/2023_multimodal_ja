@@ -1,15 +1,15 @@
 import cv2
 import numpy as np 
 from pathlib import Path
-from src.utility_rgb_test2 import rotation_matrix_to_euler_angles, update_camera_matrix, detector, get_image_points_and_model_points, draw_face_bounding_boxes, write_headpose_to_csv
+from src.utility_rgb_test2 import detector, draw_face_bounding_boxes, write_headpose_to_csv
 from sixdrepnet import SixDRepNet
-
+from tqdm import tqdm
 
 ROOT_PATH = Path("/mnt/2021_NIA_data/projects/nbb")
 RAW_DATA_PATH = ROOT_PATH.joinpath("video/raw_data")
 PROC_DATA_PATH = ROOT_PATH.joinpath("video/proc_data")
 PROJECT_PATH = Path(__file__).parents[1]
-IMAGE_PATH = Path(PROJECT_PATH, "images_test")
+IMAGE_PATH = Path(PROJECT_PATH, "images_model_sota")
 PROC_PARTICIPANT_PATH = Path(PROJECT_PATH, "data")
 
 
@@ -53,11 +53,23 @@ def read_video(video_file: Path):
 
 def estimate_headpose_rgb(video_file, participant_id):
     headpose_results = []  # Store head pose results for each face
-
     model = SixDRepNet() # Initialize SixDRepNet model
 
-    for frame_idx, video_image in enumerate(read_video(video_file)):
-        video_image = cv2.cvtColor(video_image, cv2.COLOR_BGR2RGB)
+    cap = cv2.VideoCapture(str(video_file))
+    frameCount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    
+    for frame_idx in tqdm(range(frameCount), desc="Processing frames"):
+        ret, frame = cap.read()
+
+        # Skip frames that aren't read correctly
+        if not ret:
+            continue
+
+        # Only process every 10th frame
+        if frame_idx % 10 != 0:
+            continue
+
+        video_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         # Detect faces in the image
         faces = detector(video_image, 1)
@@ -69,9 +81,10 @@ def estimate_headpose_rgb(video_file, participant_id):
 
         # Process each detected face
         for face in faces:
-             # Crop the face from the image
-            face_crop = video_image[face.top():face.bottom(), face.left():face.right()]
             try:
+                # Crop the face from the image
+                face_crop = video_image[face.top():face.bottom(), face.left():face.right()]
+
                 # Estimate pitch, yaw, and roll using SixDRepNet model
                 pitch, yaw, roll = model.predict(face_crop)
                 
@@ -81,18 +94,17 @@ def estimate_headpose_rgb(video_file, participant_id):
 
                 model.draw_axis(video_image, yaw, pitch, roll, tdx, tdy)
 
-                # Convert radians to degrees
-                roll, pitch, yaw = np.degrees([roll, pitch, yaw])
-
                 # Add head pose results to the list
                 headpose_results.append((frame_idx, roll, pitch, yaw))
 
                 # Save every 100th frame as image files
-                if frame_idx % 100 == 0 or frame_idx == 0:
+                if frame_idx % 100 == 0 or frame_idx == 0:  
                     cv2.imwrite(str(Path(IMAGE_PATH, f"{participant_id}_frame_{frame_idx}.png")), cv2.cvtColor(video_image, cv2.COLOR_RGB2BGR))
 
             except Exception as e:
                 print(f"Error while processing face on frame {frame_idx}: {e}")
+
+    cap.release()
 
     return headpose_results
 
@@ -118,7 +130,7 @@ def main():
             print("Writing to CSV...")
             headpose_dir = PROC_PARTICIPANT_PATH.joinpath("headpose_data")
             headpose_dir.mkdir(parents=True, exist_ok=True)
-            headpose_csv_file = headpose_dir.joinpath("headpose_values_rgb_sota.csv")
+            headpose_csv_file = headpose_dir.joinpath("headpose_values_rgb_sota_fixed.csv") # May need to change this 
             write_headpose_to_csv(headpose_csv_file, participant_id, frame_idx, roll, pitch, yaw)
 
         # Mark participant as processed
